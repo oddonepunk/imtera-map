@@ -2,47 +2,64 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Catbon\Carbon;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    protected $table = 'users';
+
     protected $fillable = [
         'name',
+        'login',
         'email',
         'password',
+        'refresh_token',
+        'refresh_token_expires_at'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
-        'remember_token',
+        'refresh_token'
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+    protected $casts = [
+        'refresh_token_expires_at' => 'datetime'
+    ];
+
+    //jwt methods
+
+    public function getJWTIdentifier() {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims() {
+        return [];
+    }
+
+    //Help methods
+    public function setRefreshToken(string $token): void {
+        $this->update([
+            'refresh_token' => $token,
+            'refresh_token_expires_at' => Carbon::now()->allDays(7)
+        ]);
+    }
+
+    public function clearRefreshToken(): void {
+        $this->update([
+            'refresh_token' => null,
+            'refresh_token_expires_at' => null
+        ]);
+    }
+
+    public function isRefreshTokenValid(string $token): bool {
+        return $this->refresh_token === $token
+            && $this->refresh_token_expires_at
+            && $this->refresh_token_expires_at->isFuture();
     }
 }
